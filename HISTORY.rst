@@ -1,7 +1,6 @@
 Pending
 *******
 
-* Add support for Django 5.2.
 * Add support for Django 5.1.
 * Drop support for Django 3.2, 4.0, 4.1.
 * Convert ``Safe`` to be a custom class rather than an ``Enum``.
@@ -15,6 +14,7 @@ Pending
 * Rename internal enums for clarity and PEP8.
 * Change the default safe marking to ``Safe.always``.
   This gives a better default experience for working with third-party apps.
+* Add support for Django 5.2.
 
 4.3 (2024-03-28)
 ++++++++++++++++
