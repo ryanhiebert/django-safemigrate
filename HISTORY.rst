@@ -1,6 +1,7 @@
 Pending
 *******
 
+* Add support for Django 5.2.
 * Add support for Django 5.1.
 * Drop support for Django 3.2, 4.0, 4.1.
 * Convert ``Safe`` to be a custom class rather than an ``Enum``.
