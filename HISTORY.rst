@@ -15,6 +15,7 @@ Pending
 * Change the default safe marking to ``Safe.always``.
   This gives a better default experience for working with third-party apps.
 * Add support for Django 5.2.
+* Add support for Python 3.13.
 
 4.3 (2024-03-28)
 ++++++++++++++++

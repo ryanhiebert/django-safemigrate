@@ -11,6 +11,7 @@ jobs:
         - "3.10"
         - "3.11"
         - "3.12"
+        - "3.13"
 
     services:
       mariadb:
@@ -78,6 +79,7 @@ jobs:
           - "3.10"
           - "3.11"
           - "3.12"
+          - "3.13"
         database: [pg2]
         # Add psycopg3 to our matrix for modern python versions
         include:
@@ -86,6 +88,8 @@ jobs:
             - python-version: '3.11'
               database: pg3
             - python-version: '3.12'
+              database: pg3
+            - python-version: '3.13'
               database: pg3
 
     services:
@@ -158,6 +162,7 @@ jobs:
         - "3.10"
         - "3.11"
         - "3.12"
+        - "3.13"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
