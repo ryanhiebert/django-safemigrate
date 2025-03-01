@@ -20,6 +20,15 @@ pg = ["psycopg[binary]>=3.0"]
 pg2 = ["psycopg2-binary"]
 mysql = ["mysqlclient"]
 
+[dependency-groups]
+dev = [
+  "pytest",
+  "pytest-cov",
+  "pytest-django",
+  "pytest-mock",
+  "dj-database-url",
+]
+
 [tool.isort]
 combine_as_imports = true
 profile = "black"
