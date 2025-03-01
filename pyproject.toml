@@ -22,7 +22,7 @@ dev = [
   "pytest-django",
   "pytest-mock",
   "dj-database-url",
-  "coverage[toml]"
+  "coverage[toml]",
 ]
 
 [tool.isort]
@@ -35,7 +35,10 @@ parallel = true
 source = ["django_safemigrate"]
 
 [tool.coverage.paths]
-source = ["src", ".tox/*/site-packages"]
+source = [
+  "src/django_safemigrate",
+  ".tox/*/lib/python*/site-packages/django_safemigrate",
+]
 
 [tool.coverage.report]
 show_missing = true

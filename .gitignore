@@ -13,3 +13,4 @@ dist/
 /venv/
 uv.lock
 /.venv/
+.DS_Store
