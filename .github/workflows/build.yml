@@ -39,7 +39,7 @@ jobs:
           DATABASE_URL: "mysql://root:django_safemigrate@127.0.0.1/django_safemigrate"
         run: |
           uv pip install -e .[mysql]
-          tox
+          tox --cov --cov-report=
           python -m coverage combine
           python -m coverage xml
 
@@ -107,7 +107,7 @@ jobs:
           else
             uv pip install -e .[pg]
           fi
-          tox
+          tox --cov --cov-report=
           python -m coverage combine
           python -m coverage xml
 
@@ -145,7 +145,7 @@ jobs:
           DB: sqlite
           DATABASE_URL: "sqlite:///:memory:"
         run: |
-          tox
+          tox --cov --cov-report=
           python -m coverage combine
           python -m coverage xml
 
