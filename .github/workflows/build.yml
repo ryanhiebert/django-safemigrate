@@ -37,6 +37,7 @@ jobs:
           DB: mysql
           DATABASE_URL: "mysql://root:django_safemigrate@127.0.0.1/django_safemigrate"
         run: |
+          uv run pip install -e .[mysql]
           tox
           python -m coverage combine
           python -m coverage xml
@@ -99,6 +100,11 @@ jobs:
           DB: ${{ matrix.database }}
           DATABASE_URL: "postgresql://django_safemigrate:django_safemigrate@localhost/django_safemigrate"
         run: |
+          if [ "${{ matrix.database }}" = "pg2" ]; then
+            uv run pip install -e .[pg2]
+          else
+            uv run pip install -e .[pg]
+          fi
           tox
           python -m coverage combine
           python -m coverage xml

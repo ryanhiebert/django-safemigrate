@@ -15,6 +15,11 @@ dependencies = ["django>=4.2"]
 [project.scripts]
 safemigrate-check = "django_safemigrate.check:main"
 
+[project.optional-dependencies]
+pg = ["psycopg[binary]>=3.0"]
+pg2 = ["psycopg2-binary"]
+mysql = ["mysqlclient"]
+
 [tool.isort]
 combine_as_imports = true
 profile = "black"
