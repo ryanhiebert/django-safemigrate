@@ -32,7 +32,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv pip install tox-uv tox-gh-actions
+      - run: uv pip install tox-uv tox-gh-actions coverage
       - name: Run tox
         env:
           DB: mysql
@@ -95,7 +95,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv pip install tox-uv tox-gh-actions
+      - run: uv pip install tox-uv tox-gh-actions coverage
 
       - name: Run tox
         env:
@@ -138,7 +138,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv pip install tox-uv tox-gh-actions
+      - run: uv pip install tox-uv tox-gh-actions coverage
 
       - name: Run tox
         env:
