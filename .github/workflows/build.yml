@@ -157,11 +157,9 @@ jobs:
         with:
           pattern: .coverage.*
           merge-multiple: true
-      - name: Combine coverage
-        run: |
-          uv pip install coverage[toml]
-          coverage combine
-          coverage xml
+      - run: uv pip install coverage[toml]
+      - run: coverage combine
+      - run: coverage xml
       - name: Upload coverage
         uses: codecov/codecov-action@v5
         with:
