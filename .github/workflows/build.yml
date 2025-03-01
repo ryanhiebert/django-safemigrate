@@ -30,14 +30,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv python install ${{ matrix.python-version }}
-      - run: uv pip install tox tox-gh-actions --system
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv pip install tox tox-gh-actions
       - name: Run tox
         env:
           DB: mysql
           DATABASE_URL: "mysql://root:django_safemigrate@127.0.0.1/django_safemigrate"
         run: |
-          uv pip install -e .[mysql] --system
+          uv pip install -e .[mysql]
           tox
           python -m coverage combine
           python -m coverage xml
@@ -92,8 +93,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv python install ${{ matrix.python-version }}
-      - run: uv pip install tox tox-gh-actions --system
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv pip install tox tox-gh-actions
 
       - name: Run tox
         env:
@@ -101,9 +103,9 @@ jobs:
           DATABASE_URL: "postgresql://django_safemigrate:django_safemigrate@localhost/django_safemigrate"
         run: |
           if [ "${{ matrix.database }}" = "pg2" ]; then
-            uv pip install -e .[pg2] --system
+            uv pip install -e .[pg2]
           else
-            uv pip install -e .[pg] --system
+            uv pip install -e .[pg]
           fi
           tox
           python -m coverage combine
@@ -134,8 +136,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv python install ${{ matrix.python-version }}
-      - run: uv pip install tox tox-gh-actions --system
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv pip install tox tox-gh-actions
 
       - name: Run tox
         env:
