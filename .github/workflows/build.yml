@@ -159,7 +159,7 @@ jobs:
           merge-multiple: true
       - name: Combine coverage
         run: |
-          uv pip install coverage
+          uv pip install coverage[toml]
           coverage combine
           coverage xml
       - name: Upload coverage
