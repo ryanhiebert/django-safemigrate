@@ -41,7 +41,7 @@ jobs:
       - name: Prepare coverage file
         run: |
           coverage combine
-          mv .coverage .coverage.sqlite.py${{ matrix.python-version }}
+          mv .coverage .coverage.mysql.py${{ matrix.python-version }}
       - name: Save coverage file
         uses: actions/upload-artifact@v4
         with:
