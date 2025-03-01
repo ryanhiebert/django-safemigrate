@@ -102,11 +102,6 @@ jobs:
           DB: ${{ matrix.database }}
           DATABASE_URL: "postgresql://django_safemigrate:django_safemigrate@localhost/django_safemigrate"
         run: |
-          if [ "${{ matrix.database }}" = "pg2" ]; then
-            uv pip install -e .[pg2]
-          else
-            uv pip install -e .[pg]
-          fi
           tox
           python -m coverage combine
           python -m coverage xml
