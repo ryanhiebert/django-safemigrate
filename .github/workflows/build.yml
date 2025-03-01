@@ -37,20 +37,17 @@ jobs:
         env:
           DB: mysql
           DATABASE_URL: "mysql://root:django_safemigrate@127.0.0.1/django_safemigrate"
+        run: tox
+      - name: Prepare coverage file
         run: |
-          uv pip install -e .[mysql]
-          tox
-          python -m coverage combine
-          python -m coverage xml
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
+          coverage combine
+          mv .coverage .coverage.sqlite.py${{ matrix.python-version }}
+      - name: Save coverage file
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          name: Python ${{ matrix.python-version }} MySQL
-          files: "coverage.xml"
-          fail_ci_if_error: true
-          verbose: true
+          name: .coverage.mysql.py${{ matrix.python-version }}
+          path: .coverage.mysql.py${{ matrix.python-version }}
+          include-hidden-files: true
 
 
   postgres:
@@ -96,24 +93,21 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv pip install tox-uv tox-gh-actions coverage[toml]
-
       - name: Run tox
         env:
           DB: ${{ matrix.database }}
           DATABASE_URL: "postgresql://django_safemigrate:django_safemigrate@localhost/django_safemigrate"
+        run: tox
+      - name: Prepare coverage file
         run: |
-          tox
-          python -m coverage combine
-          python -m coverage xml
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
+          coverage combine
+          mv .coverage .coverage.${{ matrix.database }}.py${{ matrix.python-version }}
+      - name: Save coverage file
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          name: Python ${{ matrix.python-version }} ${{ matrix.database }}
-          files: "coverage.xml"
-          fail_ci_if_error: true
-          verbose: true
+          name: .coverage.${{ matrix.database }}.py${{ matrix.python-version }}
+          path: .coverage.${{ matrix.database }}.py${{ matrix.python-version }}
+          include-hidden-files: true
 
 
   sqlite:
@@ -139,16 +133,37 @@ jobs:
         env:
           DB: sqlite
           DATABASE_URL: "sqlite:///:memory:"
+        run: tox
+      - name: Prepare coverage file
         run: |
-          tox
-          python -m coverage combine
-          python -m coverage xml
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
+          coverage combine
+          mv .coverage .coverage.sqlite.py${{ matrix.python-version }}
+      - name: Save coverage file
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          name: Python ${{ matrix.python-version }} SQLite
-          files: "coverage.xml"
+          name: .coverage.sqlite.py${{ matrix.python-version }}
+          path: .coverage.sqlite.py${{ matrix.python-version }}
+          include-hidden-files: true
+
+  codecov:
+    needs: [mysql, postgres, sqlite]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: 3.13
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: .coverage.*
+          merge-multiple: true
+      - name: Combine coverage
+        run: |
+          uv pip install coverage
+          coverage combine
+          coverage xml
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
           fail_ci_if_error: true
-          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
