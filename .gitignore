@@ -11,3 +11,6 @@ htmlcov/
 dist/
 .tox/
 /venv/
+uv.lock
+/.venv/
+.DS_Store
