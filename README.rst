@@ -6,12 +6,12 @@ django-safemigrate: Safely run migrations before deployment
    :target: https://pypi.org/project/django-safemigrate/
    :alt: Latest Version
 
-.. image:: https://github.com/aspiredu/django-safemigrate/workflows/Build/badge.svg
-   :target: https://github.com/aspiredu/django-safemigrate/actions/
+.. image:: https://github.com/ryanhiebert/django-safemigrate/workflows/Build/badge.svg
+   :target: https://github.com/ryanhiebert/django-safemigrate/actions/
    :alt: Build status
 
-.. image:: https://codecov.io/gh/aspiredu/django-safemigrate/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/aspiredu/django-safemigrate
+.. image:: https://codecov.io/gh/ryanhiebert/django-safemigrate/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/ryanhiebert/django-safemigrate
    :alt: Code Coverage
 
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
@@ -110,7 +110,7 @@ then add this to the ``repos`` key of your ``.pre-commit-config.yaml``:
 .. code-block:: yaml
 
     repos:
-        -   repo: https://github.com/aspiredu/django-safemigrate
+        -   repo: https://github.com/ryanhiebert/django-safemigrate
             rev: "4.3"
             hooks:
             -   id: check
@@ -163,21 +163,21 @@ Contributing
 ============
 
 To get started contributing, you'll want to clone the repository,
-install dependencies via `poetry <https://python-poetry.org/>`_,
+install dependencies with `uv <https://docs.astral.sh/uv/>`_,
 and set up `pre-commit <https://pre-commit.com/>`_.
 
 .. code-block:: bash
 
-    git clone git@github.com:aspiredu/django-safemigrate.git
+    git clone git@github.com:ryanhiebert/django-safemigrate.git
     cd django-safemigrate
-    poetry install
+    uv sync
     pre-commit install
 
 To run the tests use:
 
 .. code-block:: bash
 
-    poetry run tox
+    uvx --with tox-uv tox
 
 To publish a new version:
 
@@ -185,15 +185,5 @@ To publish a new version:
 2. Commit and push that to origin.
 3. Tag the commit with the new version ``git tag 1.0`` and push that to origin.
 4. Create the
-   `new release <https://github.com/aspiredu/django-safemigrate/releases/new>`_
-   on GitHub.
-5. Publish the new version to PyPI with ``poetry publish``.
-
-See `Poetry's docs
-<https://python-poetry.org/docs/repositories/#configuring-credentials>`_
-on how to configure your local environment to publish to PyPI. Key your PyPI
-token to only django-safemigrate.
-
-.. code-block:: bash
-
-    poetry config pypi-token.pypi <my-token>
+   `new release <https://github.com/ryanhiebert/django-safemigrate/releases/new>`_
+   on GitHub. It will be published to PyPI automatically.
