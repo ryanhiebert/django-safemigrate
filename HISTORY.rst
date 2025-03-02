@@ -1,9 +1,11 @@
-Pending
-*******
+5.0 (TBD)
++++++++++
 
-* Add support for Django 5.1.
 * Drop support for Django 3.2, 4.0, 4.1.
-* Convert ``Safe`` to be a custom class rather than an ``Enum``.
+* Add support for Django 5.1 and 5.2.
+* Add support for Python 3.13.
+* Change the default safe marking to ``Safe.always``.
+  This gives a better default experience for working with third-party apps.
 * The standard values for ``safe`` are now methods that may be called:
 
   * ``Safe.before_deploy()``
@@ -11,11 +13,9 @@ Pending
   * ``Safe.always()``
 * Add support for allowing a ``Safe.after_deploy(delay=timedelta())``
   migration to be migrated after the delay has passed.
-* Rename internal enums for clarity and PEP8.
-* Change the default safe marking to ``Safe.always``.
-  This gives a better default experience for working with third-party apps.
-* Add support for Django 5.2.
-* Add support for Python 3.13.
+* Convert ``Safe`` to be a custom class rather than an ``Enum``.
+* Rename internal enums for clarity and PEP 8 alignment.
+* Use ``uv`` as the build tool.
 
 4.3 (2024-03-28)
 ++++++++++++++++
