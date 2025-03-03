@@ -49,21 +49,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv pip install tox-uv tox-gh-actions coverage[toml]
-      - name: Determine DATABASE_URL
-        id: database_url
-        run: |
-          if [ "${{ matrix.database }}" = "sqlite" ]; then
-            DATABASE_URL="sqlite:///:memory:"
-          elif [ "${{ matrix.database }}" = "mysql" ]; then
-            DATABASE_URL="mysql://root:django_safemigrate@127.0.0.1/django_safemigrate"
-          elif [ "${{ matrix.database }}" = "pg2" ] || [ "${{ matrix.database }}" = "pg3" ]; then
-            DATABASE_URL="postgresql://django_safemigrate:django_safemigrate@localhost/django_safemigrate"
-          fi
-          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_OUTPUT
       - name: Run tox
         env:
           DB: ${{ matrix.database }}
-          DATABASE_URL: ${{ steps.database_url.outputs.DATABASE_URL }}
+          PGSQL_DATABASE_URL: postgresql://django_safemigrate:django_safemigrate@localhost/django_safemigrate
+          MYSQL_DATABASE_URL: mysql://root:django_safemigrate@127.0.0.1/django_safemigrate
         run: tox
       - name: Prepare coverage file
         run: |
