@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  dev:
+    image: python:3.13
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    environment:
+      PGSQL_DATABASE_URL: postgres://safemigrate:safemigrate@pg:5432/safemigrate
+      MYSQL_DATABASE_URL: mysql://root:safemigrate@mariadb:3306/safemigrate
+  pg:
+    image: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: safemigrate
+      POSTGRES_PASSWORD: safemigrate
+      POSTGRES_DB: safemigrate
+  mariadb:
+    image: mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: safemigrate
+      MARIADB_DATABASE: safemigrate
+
