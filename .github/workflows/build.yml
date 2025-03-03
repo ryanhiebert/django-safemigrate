@@ -19,7 +19,6 @@ jobs:
     services:
       mariadb:
         image: ${{ (matrix.database == 'mysql') && 'mariadb' || '' }}
-        # image: mariadb
         env:
           MARIADB_ROOT_PASSWORD: django_safemigrate
         options: >-
@@ -31,7 +30,6 @@ jobs:
         - 3306:3306
       postgres:
         image: ${{ (matrix.database == 'pg2' || matrix.database == 'pg3') && 'postgres' || '' }}
-        # image: postgres
         env:
           POSTGRES_DB: django_safemigrate
           POSTGRES_USER: django_safemigrate
