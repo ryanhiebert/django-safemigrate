@@ -3,19 +3,22 @@ name: Build
 on: push
 
 jobs:
-  mysql:
+  pytest:
     strategy:
       fail-fast: false
       matrix:
         python-version:
+        - "3.8"
+        - "3.9"
         - "3.10"
         - "3.11"
         - "3.12"
         - "3.13"
+        database: [sqlite, mysql, pg2, pg3]
 
     services:
       mariadb:
-        image: mariadb
+        image: ${{ (matrix.database == 'mysql') && 'mariadb' || '' }}
         env:
           MARIADB_ROOT_PASSWORD: django_safemigrate
         options: >-
@@ -25,55 +28,8 @@ jobs:
           --health-retries 5
         ports:
         - 3306:3306
-
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - run: uv pip install tox-uv tox-gh-actions coverage[toml]
-      - name: Run tox
-        env:
-          DB: mysql
-          DATABASE_URL: "mysql://root:django_safemigrate@127.0.0.1/django_safemigrate"
-        run: tox
-      - name: Prepare coverage file
-        run: |
-          coverage combine
-          mv .coverage .coverage.mysql.py${{ matrix.python-version }}
-      - name: Save coverage file
-        uses: actions/upload-artifact@v4
-        with:
-          name: .coverage.mysql.py${{ matrix.python-version }}
-          path: .coverage.mysql.py${{ matrix.python-version }}
-          include-hidden-files: true
-
-
-  postgres:
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version:
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13"
-        database: [pg2]
-        # Add psycopg3 to our matrix for modern python versions
-        include:
-            - python-version: '3.10'
-              database: pg3
-            - python-version: '3.11'
-              database: pg3
-            - python-version: '3.12'
-              database: pg3
-            - python-version: '3.13'
-              database: pg3
-
-    services:
       postgres:
-        image: postgres
+        image: ${{ (matrix.database == 'pg2' || matrix.database == 'pg3') && 'postgres' || '' }}
         env:
           POSTGRES_DB: django_safemigrate
           POSTGRES_USER: django_safemigrate
@@ -93,10 +49,21 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv pip install tox-uv tox-gh-actions coverage[toml]
+      - name: Determine DATABASE_URL
+        id: database_url
+        run: |
+          if [ "${{ matrix.database }}" = "sqlite" ]; then
+            DATABASE_URL="sqlite:///:memory:"
+          elif [ "${{ matrix.database }}" = "mysql" ]; then
+            DATABASE_URL="mysql://root:django_safemigrate@127.0.0.1/django_safemigrate"
+          elif [ "${{ matrix.database }}" = "pg2" ] || [ "${{ matrix.database }}" = "pg3" ]; then
+            DATABASE_URL="postgresql://django_safemigrate:django_safemigrate@localhost/django_safemigrate"
+          fi
+          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_OUTPUT
       - name: Run tox
         env:
           DB: ${{ matrix.database }}
-          DATABASE_URL: "postgresql://django_safemigrate:django_safemigrate@localhost/django_safemigrate"
+          DATABASE_URL: ${{ steps.database_url.outputs.DATABASE_URL }}
         run: tox
       - name: Prepare coverage file
         run: |
@@ -109,44 +76,8 @@ jobs:
           path: .coverage.${{ matrix.database }}.py${{ matrix.python-version }}
           include-hidden-files: true
 
-
-  sqlite:
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version:
-        - "3.8"
-        - "3.9"
-        - "3.10"
-        - "3.11"
-        - "3.12"
-        - "3.13"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - run: uv pip install tox-uv tox-gh-actions coverage[toml]
-
-      - name: Run tox
-        env:
-          DB: sqlite
-          DATABASE_URL: "sqlite:///:memory:"
-        run: tox
-      - name: Prepare coverage file
-        run: |
-          coverage combine
-          mv .coverage .coverage.sqlite.py${{ matrix.python-version }}
-      - name: Save coverage file
-        uses: actions/upload-artifact@v4
-        with:
-          name: .coverage.sqlite.py${{ matrix.python-version }}
-          path: .coverage.sqlite.py${{ matrix.python-version }}
-          include-hidden-files: true
-
   codecov:
-    needs: [mysql, postgres, sqlite]
+    needs: pytest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -158,8 +89,6 @@ jobs:
           pattern: .coverage.*
           merge-multiple: true
       - run: uv pip install coverage[toml]
-      - run: pwd
-      - run: ls -la
       - run: coverage combine
       - run: coverage xml
       - name: Upload coverage
