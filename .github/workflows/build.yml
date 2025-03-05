@@ -63,7 +63,7 @@ jobs:
             version="django~=${{ matrix.django-version }}.0"
           fi
           echo "version=$version" >> $GITHUB_OUTPUT
-      - run: uv run --with ${{ steps.django-version.outputs.version }} pytest --cov --cov-report=
+      - run: uv run --with "${{ steps.django-version.outputs.version }}" pytest --cov --cov-report=
       - name: Rename coverage file
         run:
           mv .coverage .coverage.dj${{ matrix.django-version }}.py${{ matrix.python-version }}
