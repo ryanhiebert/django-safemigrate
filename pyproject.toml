@@ -31,7 +31,6 @@ profile = "black"
 
 [tool.coverage.run]
 branch = true
-parallel = true
 source = ["django_safemigrate"]
 
 [tool.coverage.paths]
