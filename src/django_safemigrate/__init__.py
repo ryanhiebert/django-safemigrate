@@ -6,9 +6,9 @@ from enum import Enum
 
 
 class When(Enum):
-    always = "always"
-    before_deploy = "before_deploy"
-    after_deploy = "after_deploy"
+    ALWAYS = "always"
+    BEFORE_DEPLOY = "before_deploy"
+    AFTER_DEPLOY = "after_deploy"
 
 
 @dataclass
@@ -18,12 +18,12 @@ class Safe:
 
     @classmethod
     def always(cls):
-        return cls(when=When.always)
+        return cls(when=When.ALWAYS)
 
     @classmethod
     def before_deploy(cls):
-        return cls(when=When.before_deploy)
+        return cls(when=When.BEFORE_DEPLOY)
 
     @classmethod
     def after_deploy(cls, *, delay: timedelta = None):
-        return cls(when=When.after_deploy, delay=delay)
+        return cls(when=When.AFTER_DEPLOY, delay=delay)

@@ -58,7 +58,7 @@ def filter_migrations(
         migration_safe = safety(migration)
         detected = detected_map.get((migration.app_label, migration.name))
         # A migration is protected if detected is None or delay is not specified.
-        return migration_safe.when == When.after_deploy and (
+        return migration_safe.when == When.AFTER_DEPLOY and (
             detected is None
             or migration_safe.delay is None
             or now < (detected + migration_safe.delay)
@@ -157,7 +157,7 @@ class Command(migrate.Command):
 
             for migration in block:
                 ready.remove(migration)
-                if safety(migration).when == When.before_deploy:
+                if safety(migration).when == When.BEFORE_DEPLOY:
                     blocked.append(migration)
                 else:
                     delayed.append(migration)
@@ -200,7 +200,7 @@ class Command(migrate.Command):
             for migration in migrations:
                 migration_safe = safety(migration)
                 if (
-                    migration_safe.when == When.after_deploy
+                    migration_safe.when == When.AFTER_DEPLOY
                     and migration_safe.delay is not None
                 ):
                     now = timezone.localtime()
