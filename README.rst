@@ -10,7 +10,7 @@ django-safemigrate: Safely run migrations before deployment
    :target: https://github.com/ryanhiebert/django-safemigrate/actions/
    :alt: Build status
 
-.. image:: https://codecov.io/gh/ryanhiebert/django-safemigrate/branch/master/graph/badge.svg
+.. image:: https://codecov.io/gh/ryanhiebert/django-safemigrate/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/ryanhiebert/django-safemigrate
    :alt: Code Coverage
 
@@ -71,7 +71,7 @@ There are three options for the value of the
   This migration is only safe to run before the code change is deployed.
   For example, a migration that adds a new field to a model.
 
-* ``Safe.after_deploy(delay=None)``
+* ``Safe.after_deploy``
 
   This migration is only safe to run after the code change is deployed.
   For example, a migration that removes a field from a model.
@@ -84,7 +84,7 @@ There are three options for the value of the
   The ``delay`` is used with the datetime when the migration is first detected.
   The detection datetime is when the ``safemigrate`` command detects the
   migration in a plan that successfully runs. If the migration plan is blocked,
-  such when a ``Safe.after_deploy(delay=None)`` is in front of a
+  such when a ``Safe.after_deploy`` is in front of a
   ``Safe.before_deploy``, no migrations are marked as detected.
 
   Note that a ``Safe.after_deploy`` migration will not run the first
@@ -122,8 +122,7 @@ Nonstrict Mode
 
 Under normal operation, if there are migrations
 that must run before the deployment that depend
-on any migration that is marked to run after deployment
-(or is not marked),
+on any migration that is marked to run after deployment,
 the command will raise an error to indicate
 that there are protected migrations that
 should have already been run, but have not been,
