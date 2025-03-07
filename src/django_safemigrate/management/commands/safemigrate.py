@@ -5,6 +5,7 @@ Migration safety is enforced by a pre_migrate signal receiver.
 
 from __future__ import annotations
 
+from functools import cached_property
 from enum import Enum
 
 from django.conf import settings
@@ -20,6 +21,19 @@ from django_safemigrate.models import SafeMigration
 
 
 class Mode(Enum):
+    """The mode of operation for safemigrate.
+
+    STRICT, the default mode, will throw an error if migrations
+    marked Safe.before_deploy() are blocked by unrun migrations that
+    are marked Safe.after_deploy() with an unfulfilled delay.
+
+    NONSTRICT will run the same migrations as strict mode, but will
+    not throw an error if migrations are blocked.
+
+    DISABLED will completely bypass safemigrate protections and run
+    exactly the same as the standard migrate command.
+    """
+
     STRICT = "strict"
     NONSTRICT = "nonstrict"
     DISABLED = "disabled"
@@ -30,13 +44,6 @@ def safety(migration: Migration):
     safe = getattr(migration, "safe", Safe.always())
     callables = [Safe.before_deploy, Safe.after_deploy, Safe.always]
     return safe() if safe in callables else safe
-
-
-def safemigrate_mode():
-    try:
-        return Mode(getattr(settings, "SAFEMIGRATE", "strict").lower())
-    except:
-        raise ValueError("SAFEMIGRATE must be 'strict', 'nonstrict', or 'disabled'.")
 
 
 def filter_migrations(
@@ -97,13 +104,9 @@ class Command(migrate.Command):
             return  # Only run once
         self.receiver_has_run = True
 
-        mode = safemigrate_mode()
-        if mode == Mode.DISABLED:
+        if self.mode == Mode.DISABLED:
             # When disabled, run migrate
             return
-
-        # strict by default
-        strict = mode != Mode.NONSTRICT
 
         if any(backward for mig, backward in plan):
             raise CommandError("Backward migrations are not supported.")
@@ -167,7 +170,7 @@ class Command(migrate.Command):
         self.delayed(delayed)
         self.blocked(blocked)
 
-        if blocked and strict:
+        if blocked and self.mode == Mode.STRICT:
             raise CommandError("Aborting due to blocked migrations.")
 
         # Only mark migrations as detected if not faking
@@ -177,6 +180,17 @@ class Command(migrate.Command):
         # Swap out the items in the plan with the safe migrations.
         # None are backward, so we can always set backward to False.
         plan[:] = [(migration, False) for migration in ready]
+
+    @cached_property
+    def mode(self):
+        """Determine the configured mode of operation for safemigrate."""
+        try:
+            return Mode(getattr(settings, "SAFEMIGRATE", "strict").lower())
+        except ValueError:
+            raise ValueError(
+                "The SAFEMIGRATE setting is invalid."
+                " It must be one of 'strict', 'nonstrict', or 'disabled'."
+            )
 
     def detect(self, migrations):
         """Detect and record migrations to the database."""
