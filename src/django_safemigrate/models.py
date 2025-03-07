@@ -34,7 +34,9 @@ class SafeMigration(models.Model):
     name = models.CharField(max_length=255)
     detected = models.DateTimeField(
         help_text=_(
-            "The time the migration was detected. This is used to determine when a migration with Safe.after_deploy() should be migrated."
+            "The time the migration was detected."
+            " This is used to determine when a migration with"
+            " Safe.after_deploy() should be migrated."
         ),
         default=timezone.now,
     )

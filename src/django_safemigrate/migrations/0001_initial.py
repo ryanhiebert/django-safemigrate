@@ -31,7 +31,9 @@ class Migration(migrations.Migration):
                     "detected",
                     models.DateTimeField(
                         default=django.utils.timezone.now,
-                        help_text="The time the migration was detected. This is used to determine when a migration with Safe.after_deploy() should be migrated.",
+                        help_text="The time the migration was detected."
+                        " This is used to determine when a migration with"
+                        " Safe.after_deploy() should be migrated.",
                     ),
                 ),
             ],
