@@ -39,13 +39,6 @@ class Mode(Enum):
     DISABLED = "disabled"
 
 
-def safety(migration: Migration):
-    """Determine the safety status of a migration."""
-    safe = getattr(migration, "safe", Safe.always())
-    callables = [Safe.before_deploy, Safe.after_deploy, Safe.always]
-    return safe() if safe in callables else safe
-
-
 def filter_migrations(
     migrations: list[Migration],
 ) -> tuple[list[Migration], list[Migration]]:
@@ -62,7 +55,7 @@ def filter_migrations(
     )
 
     def is_protected(migration):
-        migration_safe = safety(migration)
+        migration_safe = Command.safe(migration)
         detected = detected_map.get((migration.app_label, migration.name))
         # A migration is protected if detected is None or delay is not specified.
         return migration_safe.when == When.AFTER_DEPLOY and (
@@ -105,21 +98,18 @@ class Command(migrate.Command):
         self.receiver_has_run = True
 
         if self.mode == Mode.DISABLED:
-            # When disabled, run migrate
-            return
+            return  # Run migrate normally
 
-        if any(backward for mig, backward in plan):
+        if any(backward for _, backward in plan):
             raise CommandError("Backward migrations are not supported.")
 
-        # Pull the migrations into a new list
-        migrations = [migration for migration, backward in plan]
+        # Resolve the safety of each migration
+        safety = {migration: self.safe(migration) for migration, _ in plan}
 
-        # Check for invalid safe properties
         invalid = [
             migration
-            for migration in migrations
-            if not isinstance(safety(migration), Safe)
-            or safety(migration).when not in When
+            for migration, safe in safety.items()
+            if not isinstance(safe, Safe)
         ]
         if invalid:
             self.stdout.write(self.style.MIGRATE_HEADING("Invalid migrations:"))
@@ -128,6 +118,9 @@ class Command(migrate.Command):
             raise CommandError(
                 "Aborting due to migrations with invalid safe properties."
             )
+
+        # Pull the migrations into a new list
+        migrations = [migration for migration, backward in plan]
 
         ready, protected = filter_migrations(migrations)
 
@@ -158,7 +151,7 @@ class Command(migrate.Command):
 
             for migration in block:
                 ready.remove(migration)
-                if safety(migration).when == When.BEFORE_DEPLOY:
+                if self.safe(migration).when == When.BEFORE_DEPLOY:
                     blocked.append(migration)
                 else:
                     delayed.append(migration)
@@ -192,6 +185,13 @@ class Command(migrate.Command):
                 " It must be one of 'strict', 'nonstrict', or 'disabled'."
             )
 
+    @staticmethod
+    def safe(migration: Migration) -> Safe:
+        """Determine the safety setting of a migration."""
+        callables = [Safe.before_deploy, Safe.after_deploy, Safe.always]
+        safe = getattr(migration, "safe", Safe.always)
+        return safe() if safe in callables else safe
+
     def detect(self, migrations):
         """Detect and record migrations to the database."""
         # The detection datetime is what's used to determine if an
@@ -210,7 +210,7 @@ class Command(migrate.Command):
             )
             self.stdout.write(self.style.MIGRATE_HEADING("Delayed migrations:"))
             for migration in migrations:
-                migration_safe = safety(migration)
+                migration_safe = self.safe(migration)
                 if (
                     migration_safe.when == When.AFTER_DEPLOY
                     and migration_safe.delay is not None
