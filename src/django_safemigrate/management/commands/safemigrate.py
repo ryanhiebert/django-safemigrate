@@ -91,11 +91,9 @@ class Command(migrate.Command):
         )
         super().handle(*args, **options)
 
-    def pre_migrate_receiver(self, *, plan, **_):
-        """Handle the pre_migrate receiver for all apps."""
+    def pre_migrate_receiver(self, *, plan: list[tuple[Migration, bool]], **_):
+        """Modify the migration plan to apply deployment safety."""
         if self.receiver_has_run:
-            # Can't just look for the run for the current app,
-            # because it only sends the signal to apps with models.
             return  # Only run once
         self.receiver_has_run = True
 

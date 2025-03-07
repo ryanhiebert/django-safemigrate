@@ -7,7 +7,9 @@ from django.utils.translation import gettext_lazy as _
 
 
 class SafeMigrationManager(models.Manager):
-    def get_detected_map(self, app_model_pairs: list[tuple[str, str]]):
+    def get_detected_map(
+        self, app_model_pairs: list[tuple[str, str]]
+    ) -> dict[tuple[str, str], timezone.datetime]:
         detection_qs = (
             self.get_queryset()
             .annotate(
