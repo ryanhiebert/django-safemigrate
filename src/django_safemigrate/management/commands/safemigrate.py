@@ -70,10 +70,13 @@ class Command(migrate.Command):
         # Resolve the declared safety configuration of each migration
         declared = {migration: self.safe(migration) for migration, _ in plan}
 
+        # Get the dates of when migrations were detected
+        detected = self.detected(declared)
+
+        ready, protected = self.categorize(declared, detected)
+
         # Pull the migrations into a new list
         migrations = list(declared)
-
-        ready, protected = self.categorize(declared)
 
         if not protected:
             self.detect(migrations)
@@ -111,8 +114,11 @@ class Command(migrate.Command):
         delayed = [m for m in migrations if m in delayed]
         blocked = [m for m in migrations if m in blocked]
 
-        self.delayed(delayed)
-        self.blocked(blocked)
+        if delayed:
+            self.write_delayed(delayed, detected)
+
+        if blocked:
+            self.write_blocked(blocked)
 
         if blocked and self.mode == Mode.STRICT:
             raise CommandError("Aborting due to blocked migrations.")
@@ -162,7 +168,9 @@ class Command(migrate.Command):
         }
 
     def categorize(
-        self, declared: dict[Migration, Safe]
+        self,
+        declared: dict[Migration, Safe],
+        detected: dict[Migration, timezone.datetime],
     ) -> tuple[list[Migration], list[Migration]]:
         """
         Filter migrations into ready and protected migrations.
@@ -172,7 +180,6 @@ class Command(migrate.Command):
         """
         migrations = list(declared)
         now = timezone.now()
-        detected = self.detected(declared)
 
         def is_protected(migration):
             migration_safe = Command.safe(migration)
@@ -202,38 +209,32 @@ class Command(migrate.Command):
                 app=migration.app_label, name=migration.name
             )
 
-    def delayed(self, migrations):
-        """Handle delayed migrations."""
-        # Display delayed migrations if they exist:
-        if migrations:
-            detected_map = SafeMigration.objects.get_detected_map(
-                [(m.app_label, m.name) for m in migrations]
-            )
-            self.stdout.write(self.style.MIGRATE_HEADING("Delayed migrations:"))
-            for migration in migrations:
-                migration_safe = self.safe(migration)
-                if (
-                    migration_safe.when == When.AFTER_DEPLOY
-                    and migration_safe.delay is not None
-                ):
-                    now = timezone.localtime()
-                    detected = detected_map.get(
-                        (migration.app_label, migration.name), timezone.localtime()
-                    )
-                    migrate_date = detected + migration_safe.delay
-                    humanized_date = timeuntil(migrate_date, now=now, depth=2)
-                    self.stdout.write(
-                        f"  {migration.app_label}.{migration.name} "
-                        f"(can automatically migrate in {humanized_date} "
-                        f"- {migrate_date.isoformat()})"
-                    )
-                else:
-                    self.stdout.write(f"  {migration.app_label}.{migration.name}")
-
-    def blocked(self, migrations):
-        """Handle blocked migrations."""
-        # Display blocked migrations if they exist.
-        if migrations:
-            self.stdout.write(self.style.MIGRATE_HEADING("Blocked migrations:"))
-            for migration in migrations:
+    def write_delayed(
+        self,
+        migrations: list[Migration],
+        detected: dict[Migration, timezone.datetime],
+    ):
+        """Display delayed migrations."""
+        self.stdout.write(self.style.MIGRATE_HEADING("Delayed migrations:"))
+        for migration in migrations:
+            migration_safe = self.safe(migration)
+            if (
+                migration_safe.when == When.AFTER_DEPLOY
+                and migration_safe.delay is not None
+            ):
+                now = timezone.localtime()
+                migrate_date = detected.get(migration, now) + migration_safe.delay
+                humanized_date = timeuntil(migrate_date, now=now, depth=2)
+                self.stdout.write(
+                    f"  {migration.app_label}.{migration.name} "
+                    f"(can automatically migrate in {humanized_date} "
+                    f"- {migrate_date.isoformat()})"
+                )
+            else:
                 self.stdout.write(f"  {migration.app_label}.{migration.name}")
+
+    def write_blocked(self, migrations: list[Migration]):
+        """Display blocked migrations."""
+        self.stdout.write(self.style.MIGRATE_HEADING("Blocked migrations:"))
+        for migration in migrations:
+            self.stdout.write(f"  {migration.app_label}.{migration.name}")

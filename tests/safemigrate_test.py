@@ -294,7 +294,10 @@ class TestSafeMigrate:
             ),
         ]
         out = StringIO()
-        Command(stdout=out).delayed(migrations)
+        command = Command(stdout=out)
+        declared = {migration: command.safe(migration) for migration in migrations}
+        detected = command.detected(declared)
+        command.write_delayed(migrations, detected)
         result = out.getvalue().strip()
         header, migration1, migration2 = result.split("\n", maxsplit=2)
         assert header == "Delayed migrations:"
@@ -326,7 +329,10 @@ class TestSafeMigrate:
             ),
         ]
         out = StringIO()
-        Command(stdout=out).delayed(migrations)
+        command = Command(stdout=out)
+        declared = {migration: command.safe(migration) for migration in migrations}
+        detected = command.detected(declared)
+        command.write_delayed(migrations, detected)
         result = out.getvalue().strip()
         header, migration1, migration2 = result.split("\n", maxsplit=2)
         assert header == "Delayed migrations:"
