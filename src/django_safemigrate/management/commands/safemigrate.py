@@ -149,6 +149,18 @@ class Command(migrate.Command):
             )
         return safety
 
+    def detected(
+        self, declared: dict[Migration, Safe]
+    ) -> dict[Migration, timezone.datetime]:
+        detected_map = SafeMigration.objects.get_detected_map(
+            [(m.app_label, m.name) for m in declared]
+        )
+        return {
+            migration: detected_map[(migration.app_label, migration.name)]
+            for migration in declared
+            if (migration.app_label, migration.name) in detected_map
+        }
+
     def categorize(
         self, declared: dict[Migration, Safe]
     ) -> tuple[list[Migration], list[Migration]]:
@@ -160,19 +172,15 @@ class Command(migrate.Command):
         """
         migrations = list(declared)
         now = timezone.now()
-
-        detected_map = SafeMigration.objects.get_detected_map(
-            [(m.app_label, m.name) for m in migrations]
-        )
+        detected = self.detected(declared)
 
         def is_protected(migration):
             migration_safe = Command.safe(migration)
-            detected = detected_map.get((migration.app_label, migration.name))
             # A migration is protected if detected is None or delay is not specified.
             return migration_safe.when == When.AFTER_DEPLOY and (
-                detected is None
+                detected.get(migration) is None
                 or migration_safe.delay is None
-                or now < (detected + migration_safe.delay)
+                or now < (detected[migration] + migration_safe.delay)
             )
 
         ready = []
