@@ -73,59 +73,36 @@ class Command(migrate.Command):
         # Get the dates of when migrations were detected
         detected = self.detected(declared)
 
-        ready, protected = self.categorize(declared, detected)
+        # Resolve the current status for each migration respecting delays
+        resolved = self.resolve(declared, detected)
 
-        # Pull the migrations into a new list
-        migrations = list(declared)
+        # Categorize the migrations for display and action
+        ready, delayed, blocked = self.categorize(resolved)
 
-        if not protected:
-            self.detect(migrations)
+        # Blocked migrations require delayed migrations
+        if not delayed:
             return  # Run all the migrations
 
-        # Display the migrations that are protected
-        self.stdout.write(self.style.MIGRATE_HEADING("Protected migrations:"))
-        for migration in protected:
-            self.stdout.write(f"  {migration.app_label}.{migration.name}")
+        # Display the delayed migrations
+        self.write_delayed(delayed, declared, resolved, detected)
 
-        delayed = []
-        blocked = []
-
-        while True:
-            blockers = protected + delayed + blocked
-            blockers_deps = [(m.app_label, m.name) for m in blockers]
-            to_block_deps = [dep for mig in blockers for dep in mig.run_before]
-            block = [
-                migration
-                for migration in ready
-                if any(dep in blockers_deps for dep in migration.dependencies)
-                or (migration.app_label, migration.name) in to_block_deps
-            ]
-            if not block:
-                break
-
-            for migration in block:
-                ready.remove(migration)
-                if self.safe(migration).when == When.BEFORE_DEPLOY:
-                    blocked.append(migration)
-                else:
-                    delayed.append(migration)
-
-        # Order the migrations in the order of the original plan.
-        delayed = [m for m in migrations if m in delayed]
-        blocked = [m for m in migrations if m in blocked]
-
-        if delayed:
-            self.write_delayed(delayed, detected)
-
+        # Display the blocked migrations
         if blocked:
             self.write_blocked(blocked)
 
         if blocked and self.mode == Mode.STRICT:
             raise CommandError("Aborting due to blocked migrations.")
 
-        # Only mark migrations as detected if not faking
+        # Mark the delayed migrations as detected if not faking
         if not self.fake:
-            self.detect(migrations)
+            self.detect(
+                [
+                    migration
+                    for migration in delayed
+                    if declared[migration].when == When.AFTER_DEPLOY
+                    and declared[migration].delay is not None
+                ]
+            )
 
         # Swap out the items in the plan with the safe migrations.
         # None are backward, so we can always set backward to False.
@@ -158,8 +135,13 @@ class Command(migrate.Command):
     def detected(
         self, declared: dict[Migration, Safe]
     ) -> dict[Migration, timezone.datetime]:
+        """Get the detected dates for each migration."""
         detected_map = SafeMigration.objects.get_detected_map(
-            [(m.app_label, m.name) for m in declared]
+            [
+                (migration.app_label, migration.name)
+                for migration, safe in declared.items()
+                if safe.when == When.AFTER_DEPLOY and safe.delay is not None
+            ]
         )
         return {
             migration: detected_map[(migration.app_label, migration.name)]
@@ -167,63 +149,107 @@ class Command(migrate.Command):
             if (migration.app_label, migration.name) in detected_map
         }
 
-    def categorize(
+    def resolve(
         self,
         declared: dict[Migration, Safe],
         detected: dict[Migration, timezone.datetime],
-    ) -> tuple[list[Migration], list[Migration]]:
-        """
-        Filter migrations into ready and protected migrations.
+    ) -> dict[Migration, When]:
+        """Resolve the current status of each migration.
 
-        A protected migration is one that's marked Safe.after_deploy()
-        and has not yet passed its delay value.
+        ``When.AFTER_DEPLOY`` migrations are resolved to ``When.ALWAYS``
+        if they have previously been detected and their delay has passed.
         """
-        migrations = list(declared)
         now = timezone.now()
-
-        def is_protected(migration):
-            migration_safe = Command.safe(migration)
-            # A migration is protected if detected is None or delay is not specified.
-            return migration_safe.when == When.AFTER_DEPLOY and (
-                detected.get(migration) is None
-                or migration_safe.delay is None
-                or now < (detected[migration] + migration_safe.delay)
+        return {
+            migration: (
+                When.ALWAYS
+                if safe.when == When.AFTER_DEPLOY
+                and safe.delay is not None
+                and migration in detected
+                and detected[migration] + safe.delay <= now
+                else safe.when
             )
+            for migration, safe in declared.items()
+        }
 
-        ready = []
-        protected = []
+    def categorize(
+        self, resolved: dict[Migration, When]
+    ) -> tuple[list[Migration], list[Migration], list[Migration]]:
+        """Categorize the migrations as ready, delayed, or blocked.
 
-        for migration in migrations:
-            if is_protected(migration):
-                protected.append(migration)
-            else:
-                ready.append(migration)
-        return ready, protected
+        Ready migrations are ready to be run immediately.
 
-    def detect(self, migrations):
-        """Detect and record migrations to the database."""
-        # The detection datetime is what's used to determine if an
-        # after_deploy() with a delay can be migrated or not.
-        for migration in migrations:
-            SafeMigration.objects.get_or_create(
-                app=migration.app_label, name=migration.name
-            )
+        Delayed migrations cannot be run immediately, but are safe to run
+        after deployment.
+
+        Blocked migrations are dependent on a delayed migration, but
+        either need to run before deployment or depend on a migration
+        that needs to run before deployment.
+        """
+        ready = [mig for mig, when in resolved.items() if when != When.AFTER_DEPLOY]
+        delayed = [mig for mig, when in resolved.items() if when == When.AFTER_DEPLOY]
+        blocked = []
+
+        if not delayed and not blocked:
+            return ready, delayed, blocked
+
+        def to_block(target, blockers):
+            """Find a round of migrations that depend on these blockers."""
+            blocker_deps = [(m.app_label, m.name) for m in blockers]
+            to_block_deps = [dep for m in blockers for dep in m.run_before]
+            return [
+                migration
+                for migration in target
+                if any(dep in blocker_deps for dep in migration.dependencies)
+                or (migration.app_label, migration.name) in to_block_deps
+            ]
+
+        # Delay or block ready migrations that are behind delayed migrations.
+        while True:
+            block = to_block(ready, delayed + blocked)
+            if not block:
+                break
+
+            for migration in block:
+                ready.remove(migration)
+                if resolved[migration] == When.BEFORE_DEPLOY:
+                    blocked.append(migration)
+                else:
+                    delayed.append(migration)
+
+        # Block delayed migrations that are behind other blocked migrations.
+        while True:
+            block = to_block(delayed, blocked)
+            if not block:
+                break
+
+            for migration in block:
+                delayed.remove(migration)
+                blocked.append(migration)
+
+        # Order the migrations in the order of the original plan.
+        ready = [m for m in resolved if m in ready]
+        delayed = [m for m in resolved if m in delayed]
+        blocked = [m for m in resolved if m in blocked]
+
+        return ready, delayed, blocked
 
     def write_delayed(
         self,
         migrations: list[Migration],
+        declared: dict[Migration, Safe],
+        resolved: dict[Migration, When],
         detected: dict[Migration, timezone.datetime],
     ):
         """Display delayed migrations."""
         self.stdout.write(self.style.MIGRATE_HEADING("Delayed migrations:"))
         for migration in migrations:
-            migration_safe = self.safe(migration)
             if (
-                migration_safe.when == When.AFTER_DEPLOY
-                and migration_safe.delay is not None
+                resolved[migration] == When.AFTER_DEPLOY
+                and declared[migration].delay is not None
             ):
                 now = timezone.localtime()
-                migrate_date = detected.get(migration, now) + migration_safe.delay
+                migrate_date = detected.get(migration, now) + declared[migration].delay
                 humanized_date = timeuntil(migrate_date, now=now, depth=2)
                 self.stdout.write(
                     f"  {migration.app_label}.{migration.name} "
@@ -238,3 +264,12 @@ class Command(migrate.Command):
         self.stdout.write(self.style.MIGRATE_HEADING("Blocked migrations:"))
         for migration in migrations:
             self.stdout.write(f"  {migration.app_label}.{migration.name}")
+
+    def detect(self, migrations):
+        """Mark the given migrations as detected."""
+        # The detection datetime is what's used to determine if an
+        # after_deploy() with a delay can be migrated or not.
+        for migration in migrations:
+            SafeMigration.objects.get_or_create(
+                app=migration.app_label, name=migration.name
+            )

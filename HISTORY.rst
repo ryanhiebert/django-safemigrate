@@ -16,6 +16,11 @@
 * Convert ``Safe`` to be a custom class rather than an ``Enum``.
 * Rename internal enums for clarity and PEP 8 alignment.
 * Use ``uv`` as the build tool.
+* ``Safe.after_deploy`` and ``Safe.always`` migrations will be
+  reported as blocked if they are behind a blocked ``Safe.before_deploy``
+  migration.
+* ``Safe.after_deploy`` migrations are now reported along with other
+  delayed migrations instead of being separately reported as protected.
 
 4.3 (2024-03-28)
 ++++++++++++++++
