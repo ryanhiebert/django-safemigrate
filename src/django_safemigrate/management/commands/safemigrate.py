@@ -39,42 +39,6 @@ class Mode(Enum):
     DISABLED = "disabled"
 
 
-def filter_migrations(
-    migrations: list[Migration],
-) -> tuple[list[Migration], list[Migration]]:
-    """
-    Filter migrations into ready and protected migrations.
-
-    A protected migration is one that's marked Safe.after_deploy()
-    and has not yet passed its delay value.
-    """
-    now = timezone.now()
-
-    detected_map = SafeMigration.objects.get_detected_map(
-        [(m.app_label, m.name) for m in migrations]
-    )
-
-    def is_protected(migration):
-        migration_safe = Command.safe(migration)
-        detected = detected_map.get((migration.app_label, migration.name))
-        # A migration is protected if detected is None or delay is not specified.
-        return migration_safe.when == When.AFTER_DEPLOY and (
-            detected is None
-            or migration_safe.delay is None
-            or now < (detected + migration_safe.delay)
-        )
-
-    ready = []
-    protected = []
-
-    for migration in migrations:
-        if is_protected(migration):
-            protected.append(migration)
-        else:
-            ready.append(migration)
-    return ready, protected
-
-
 class Command(migrate.Command):
     """Run database migrations that are safe to run before deployment."""
 
@@ -103,26 +67,13 @@ class Command(migrate.Command):
         if any(backward for _, backward in plan):
             raise CommandError("Backward migrations are not supported.")
 
-        # Resolve the safety of each migration
-        safety = {migration: self.safe(migration) for migration, _ in plan}
-
-        invalid = [
-            migration
-            for migration, safe in safety.items()
-            if not isinstance(safe, Safe)
-        ]
-        if invalid:
-            self.stdout.write(self.style.MIGRATE_HEADING("Invalid migrations:"))
-            for migration in invalid:
-                self.stdout.write(f"  {migration.app_label}.{migration.name}")
-            raise CommandError(
-                "Aborting due to migrations with invalid safe properties."
-            )
+        # Resolve the declared safety configuration of each migration
+        declared = {migration: self.safe(migration) for migration, _ in plan}
 
         # Pull the migrations into a new list
-        migrations = [migration for migration, backward in plan]
+        migrations = list(declared)
 
-        ready, protected = filter_migrations(migrations)
+        ready, protected = self.categorize(declared)
 
         if not protected:
             self.detect(migrations)
@@ -190,7 +141,49 @@ class Command(migrate.Command):
         """Determine the safety setting of a migration."""
         callables = [Safe.before_deploy, Safe.after_deploy, Safe.always]
         safe = getattr(migration, "safe", Safe.always)
-        return safe() if safe in callables else safe
+        safety = safe() if safe in callables else safe
+        if not isinstance(safety, Safe):
+            raise CommandError(
+                f"Migration {migration.app_label}.{migration.name}"
+                " has an invalid safe property."
+            )
+        return safety
+
+    def categorize(
+        self, declared: dict[Migration, Safe]
+    ) -> tuple[list[Migration], list[Migration]]:
+        """
+        Filter migrations into ready and protected migrations.
+
+        A protected migration is one that's marked Safe.after_deploy()
+        and has not yet passed its delay value.
+        """
+        migrations = list(declared)
+        now = timezone.now()
+
+        detected_map = SafeMigration.objects.get_detected_map(
+            [(m.app_label, m.name) for m in migrations]
+        )
+
+        def is_protected(migration):
+            migration_safe = Command.safe(migration)
+            detected = detected_map.get((migration.app_label, migration.name))
+            # A migration is protected if detected is None or delay is not specified.
+            return migration_safe.when == When.AFTER_DEPLOY and (
+                detected is None
+                or migration_safe.delay is None
+                or now < (detected + migration_safe.delay)
+            )
+
+        ready = []
+        protected = []
+
+        for migration in migrations:
+            if is_protected(migration):
+                protected.append(migration)
+            else:
+                ready.append(migration)
+        return ready, protected
 
     def detect(self, migrations):
         """Detect and record migrations to the database."""
