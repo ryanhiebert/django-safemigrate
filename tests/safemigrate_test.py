@@ -56,6 +56,8 @@ class TestSafeMigrate:
 
     def test_rerun(self, receiver):
         """Avoid running the pre_migrate_receiver twice."""
+        # Make sure we're looking for the right attribute
+        assert receiver.__self__.receiver_has_run == False
         receiver.__self__.receiver_has_run = True
         plan = [(Migration(), False)]
         receiver(plan=plan)
@@ -280,59 +282,28 @@ class TestSafeMigrate:
         Confirm the delayed messaging of a migration with
         an after_deploy safety.
         """
-        migrations = [
-            Migration(
-                "spam",
-                "0001_initial",
-                safe=Safe.after_deploy(delay=(timedelta(days=8))),
+        plan = [
+            (
+                Migration(
+                    "spam",
+                    "0001_initial",
+                    safe=Safe.after_deploy(delay=(timedelta(days=8))),
+                ),
+                False,
             ),
-            Migration(
-                "spam",
-                "0002_followup",
-                safe=Safe.after_deploy(),
-                dependencies=[("spam", "0001_initial")],
-            ),
-        ]
-        out = StringIO()
-        command = Command(stdout=out)
-        declared = {migration: command.safe(migration) for migration in migrations}
-        detected = command.detected(declared)
-        command.write_delayed(migrations, detected)
-        result = out.getvalue().strip()
-        header, migration1, migration2 = result.split("\n", maxsplit=2)
-        assert header == "Delayed migrations:"
-        assert migration1.startswith(
-            "  spam.0001_initial (can automatically migrate in 1\xa0week, 1\xa0day - "
-        )
-        assert migration2 == "  spam.0002_followup"
-
-    def test_after_message_preseen(self):
-        """
-        Confirm the delayed messaging of a pre-existing migration with
-        an after_deploy safety.
-        """
-        SafeMigration.objects.create(
-            app="spam", name="0001_initial", detected=timezone.now() - timedelta(days=1)
-        )
-        migrations = [
-            Migration(
-                "spam",
-                "0001_initial",
-                # This will fail if it takes more than 10 minutes to run
-                safe=Safe.after_deploy(delay=(timedelta(days=9, minutes=10))),
-            ),
-            Migration(
-                "spam",
-                "0002_followup",
-                safe=Safe.after_deploy(),
-                dependencies=[("spam", "0001_initial")],
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.after_deploy(),
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
             ),
         ]
         out = StringIO()
-        command = Command(stdout=out)
-        declared = {migration: command.safe(migration) for migration in migrations}
-        detected = command.detected(declared)
-        command.write_delayed(migrations, detected)
+        receiver = Command(stdout=out).pre_migrate_receiver
+        receiver(plan=plan)
         result = out.getvalue().strip()
         header, migration1, migration2 = result.split("\n", maxsplit=2)
         assert header == "Delayed migrations:"
@@ -492,7 +463,7 @@ class TestSafeMigrate:
         assert len(plan) == 1
 
     def test_with_non_safe_migration_nonstrict(self, settings, receiver):
-        """Nonstrict mode runs even with blocked migrations."""
+        """Run ready deployments even if there are blocked migrations."""
         settings.SAFEMIGRATE = "nonstrict"
         plan = [
             (
@@ -585,7 +556,7 @@ class TestSafeMigrate:
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=Safe.after_deploy(),
+                    safe=Safe.after_deploy(delay=timedelta(days=1)),
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
@@ -599,10 +570,61 @@ class TestSafeMigrate:
                 ),
                 False,
             ),
+            (
+                Migration(
+                    "spam",
+                    "0004_blocked",
+                    safe=Safe.after_deploy(delay=timedelta(days=1)),
+                    dependencies=[("spam", "0003_safety")],
+                ),
+                False,
+            ),
         ]
         with pytest.raises(CommandError):
             receiver(plan=plan)
         assert not SafeMigration.objects.exists()
+
+    def test_migrations_detected_when_blocked_nonstrict(self, settings, receiver):
+        """Delayed migrations should be detected even if others are blocked.
+
+        This behavior is unique to nonstrict mode, where the migrations
+        still run even if there are blocked migrations.
+        """
+        settings.SAFEMIGRATE = "nonstrict"
+
+        plan = [
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy), False),
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.after_deploy(delay=timedelta(days=1)),
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0003_safety",
+                    safe=Safe.before_deploy,
+                    dependencies=[("spam", "0002_followup")],
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0004_blocked",
+                    safe=Safe.after_deploy(delay=timedelta(days=1)),
+                    dependencies=[("spam", "0003_safety")],
+                ),
+                False,
+            ),
+        ]
+        receiver(plan=plan)
+        assert len(plan) == 1
+        assert SafeMigration.objects.count() == 1
 
     def test_disallow_faking(self):
         """Safemigrate does not support faking migrations."""
@@ -621,8 +643,8 @@ class TestSafeMigrate:
             (
                 Migration(
                     "spam",
-                    "0002_followup",
-                    safe=Safe.after_deploy(),
+                    "0002_delayed",
+                    safe=Safe.after_deploy(delay=timedelta(days=1)),
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
@@ -638,26 +660,9 @@ class TestSafeMigrate:
             ),
         ]
         receiver(plan=plan)
-        assert SafeMigration.objects.count() == 3
-        # Confirm the existing value is not updated
-        assert SafeMigration.objects.filter(detected__gt=existing.detected).count() == 2
-
-    def test_migrations_are_detected_when_no_delays(self, receiver):
-        """Migrations should be marked as detected when there are no delays."""
-        plan = [
-            (Migration("spam", "0001_initial", safe=Safe.before_deploy()), False),
-            (
-                Migration(
-                    "spam",
-                    "0002_followup",
-                    safe=Safe.always(),
-                    dependencies=[("spam", "0001_initial")],
-                ),
-                False,
-            ),
-        ]
-        receiver(plan=plan)
         assert SafeMigration.objects.count() == 2
+        # Confirm the existing value is not updated
+        assert SafeMigration.objects.filter(detected__gt=existing.detected).count() == 1
 
 
 class TestCheckMissingSafe:

@@ -7,6 +7,11 @@ Breaking Changes:
 * Change the default safe marking to ``Safe.always``.
   This gives a better default experience for working with third-party apps.
 * Disallow faking migrations when using ``safemigrate``.
+* ``Safe.after_deploy`` and ``Safe.always`` migrations will be
+  reported as blocked if they are behind a blocked ``Safe.before_deploy``
+  migration.
+* ``Safe.after_deploy`` migrations are now reported along with other
+  delayed migrations instead of being separately reported as protected.
 
 Other improvements:
 
