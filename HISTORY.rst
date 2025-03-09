@@ -1,11 +1,17 @@
 5.0 (TBD)
 +++++++++
 
+Breaking Changes:
+
 * Drop support for Django 3.2, 4.0, 4.1.
-* Add support for Django 5.1 and 5.2.
-* Add support for Python 3.13.
 * Change the default safe marking to ``Safe.always``.
   This gives a better default experience for working with third-party apps.
+* Disallow faking migrations when using ``safemigrate``.
+
+Other improvements:
+
+* Add support for Django 5.1 and 5.2.
+* Add support for Python 3.13.
 * The standard values for ``safe`` are now methods that may be called:
 
   * ``Safe.before_deploy()``

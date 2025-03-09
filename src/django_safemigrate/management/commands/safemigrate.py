@@ -44,10 +44,12 @@ class Command(migrate.Command):
 
     help = "Run database migrations that are safe to run before deployment."
     receiver_has_run = False
-    fake = False
 
     def handle(self, *args, **options):
-        self.fake = options.get("fake", False)
+        fake = options.get("fake", False)
+        if fake:
+            raise CommandError("Safemigrate does not support faking migrations.")
+
         # Only connect the handler when this command is run to
         # avoid running for tests.
         pre_migrate.connect(
@@ -123,9 +125,8 @@ class Command(migrate.Command):
         if blocked and self.mode == Mode.STRICT:
             raise CommandError("Aborting due to blocked migrations.")
 
-        # Only mark migrations as detected if not faking
-        if not self.fake:
-            self.detect(migrations)
+        # Mark the migrations as detected
+        self.detect(migrations)
 
         # Swap out the items in the plan with the safe migrations.
         # None are backward, so we can always set backward to False.
