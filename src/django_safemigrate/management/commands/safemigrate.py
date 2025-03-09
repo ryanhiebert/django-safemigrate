@@ -75,7 +75,11 @@ class Command(migrate.Command):
         # Get the dates of when migrations were detected
         detected = self.detected(declared)
 
-        ready, protected = self.categorize(declared, detected)
+        # Resolve the current status for each migration respecting delays
+        resolved = self.resolve(declared, detected)
+
+        # Categorize the migrations for display and action
+        ready, protected = self.categorize(resolved)
 
         # Pull the migrations into a new list
         migrations = list(declared)
@@ -159,6 +163,7 @@ class Command(migrate.Command):
     def detected(
         self, declared: dict[Migration, Safe]
     ) -> dict[Migration, timezone.datetime]:
+        """Get the detected dates for each migration."""
         detected_map = SafeMigration.objects.get_detected_map(
             [(m.app_label, m.name) for m in declared]
         )
@@ -168,28 +173,47 @@ class Command(migrate.Command):
             if (migration.app_label, migration.name) in detected_map
         }
 
-    def categorize(
+    def resolve(
         self,
         declared: dict[Migration, Safe],
         detected: dict[Migration, timezone.datetime],
-    ) -> tuple[list[Migration], list[Migration]]:
+    ) -> dict[Migration, When]:
+        """Resolve the current status of each migration.
+
+        ``When.AFTER_DEPLOY`` migrations are resolved to ``When.ALWAYS``
+        if they have previously been detected and their delay has passed.
         """
-        Filter migrations into ready and protected migrations.
+        now = timezone.now()
+        return {
+            migration: (
+                When.ALWAYS
+                if safe.when == When.AFTER_DEPLOY
+                and safe.delay is not None
+                and migration in detected
+                and detected[migration] + safe.delay <= now
+                else safe.when
+            )
+            for migration, safe in declared.items()
+        }
+
+    def categorize(
+        self,
+        resolved: dict[Migration, When],
+    ) -> tuple[list[Migration], list[Migration]]:
+        """Categorize the migrations as ready or protected.
+
+        Ready migrations are ready to be run immediately.
+
+        Protected migrations are marked as Safe.after_deploy() and have
+        not yet passed their delay.
 
         A protected migration is one that's marked Safe.after_deploy()
         and has not yet passed its delay value.
         """
-        migrations = list(declared)
-        now = timezone.now()
+        migrations = list(resolved)
 
         def is_protected(migration):
-            migration_safe = Command.safe(migration)
-            # A migration is protected if detected is None or delay is not specified.
-            return migration_safe.when == When.AFTER_DEPLOY and (
-                detected.get(migration) is None
-                or migration_safe.delay is None
-                or now < (detected[migration] + migration_safe.delay)
-            )
+            return resolved[migration] == When.AFTER_DEPLOY
 
         ready = []
         protected = []
@@ -202,7 +226,7 @@ class Command(migrate.Command):
         return ready, protected
 
     def detect(self, migrations):
-        """Detect and record migrations to the database."""
+        """Mark the given migrations as detected."""
         # The detection datetime is what's used to determine if an
         # after_deploy() with a delay can be migrated or not.
         for migration in migrations:
