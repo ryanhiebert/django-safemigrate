@@ -297,7 +297,8 @@ class TestSafeMigrate:
         command = Command(stdout=out)
         declared = {migration: command.safe(migration) for migration in migrations}
         detected = command.detected(declared)
-        command.write_delayed(migrations, detected)
+        resolved = command.resolve(declared, detected)
+        command.write_delayed(migrations, declared, resolved, detected)
         result = out.getvalue().strip()
         header, migration1, migration2 = result.split("\n", maxsplit=2)
         assert header == "Delayed migrations:"
@@ -332,7 +333,8 @@ class TestSafeMigrate:
         command = Command(stdout=out)
         declared = {migration: command.safe(migration) for migration in migrations}
         detected = command.detected(declared)
-        command.write_delayed(migrations, detected)
+        resolved = command.resolve(declared, detected)
+        command.write_delayed(migrations, declared, resolved, detected)
         result = out.getvalue().strip()
         header, migration1, migration2 = result.split("\n", maxsplit=2)
         assert header == "Delayed migrations:"
@@ -492,7 +494,7 @@ class TestSafeMigrate:
         assert len(plan) == 1
 
     def test_with_non_safe_migration_nonstrict(self, settings, receiver):
-        """Nonstrict mode runs even with blocked migrations."""
+        """Run ready migrations even if there are blocked migrations."""
         settings.SAFEMIGRATE = "nonstrict"
         plan = [
             (
