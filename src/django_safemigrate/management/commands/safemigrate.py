@@ -121,7 +121,7 @@ class Command(migrate.Command):
         blocked = [m for m in migrations if m in blocked]
 
         if delayed:
-            self.write_delayed(delayed, detected)
+            self.write_delayed(delayed, declared, resolved, detected)
 
         if blocked:
             self.write_blocked(blocked)
@@ -237,18 +237,19 @@ class Command(migrate.Command):
     def write_delayed(
         self,
         migrations: list[Migration],
+        declared: dict[Migration, Safe],
+        resolved: dict[Migration, When],
         detected: dict[Migration, timezone.datetime],
     ):
         """Display delayed migrations."""
         self.stdout.write(self.style.MIGRATE_HEADING("Delayed migrations:"))
         for migration in migrations:
-            migration_safe = self.safe(migration)
             if (
-                migration_safe.when == When.AFTER_DEPLOY
-                and migration_safe.delay is not None
+                resolved[migration] == When.AFTER_DEPLOY
+                and declared[migration].delay is not None
             ):
                 now = timezone.localtime()
-                migrate_date = detected.get(migration, now) + migration_safe.delay
+                migrate_date = detected.get(migration, now) + declared[migration].delay
                 humanized_date = timeuntil(migrate_date, now=now, depth=2)
                 self.stdout.write(
                     f"  {migration.app_label}.{migration.name} "
