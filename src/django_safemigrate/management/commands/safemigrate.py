@@ -166,29 +166,27 @@ class Command(migrate.Command):
         self,
         resolved: dict[Migration, When],
     ) -> tuple[list[Migration], list[Migration], list[Migration], list[Migration]]:
-        """Categorize the migrations as ready, protected, delayed, and blocked.
+        """Categorize the migrations as ready, protected, delayed, or blocked.
 
         Ready migrations are ready to be run immediately.
 
         Protected migrations are marked as Safe.after_deploy() and have
         not yet passed their delay.
+
+        Delayed migrations are unprotected migrations that cannot be
+        run immediately, but are safe to run after deployment.
+
+        Blocked migrations are dependent on a delayed migration, but
+        either need to run before deployment or depend on a migration
+        that needs to run before deployment.
         """
-        migrations = list(resolved)
-
-        def is_protected(migration):
-            return resolved[migration] == When.AFTER_DEPLOY
-
-        ready = []
-        protected = []
-
-        for migration in migrations:
-            if is_protected(migration):
-                protected.append(migration)
-            else:
-                ready.append(migration)
-
+        ready = [mig for mig, when in resolved.items() if when != When.AFTER_DEPLOY]
+        protected = [mig for mig, when in resolved.items() if when == When.AFTER_DEPLOY]
         delayed = []
         blocked = []
+
+        if not protected and not delayed and not blocked:
+            return ready, protected, delayed, blocked
 
         while True:
             blockers = protected + delayed + blocked
@@ -205,14 +203,14 @@ class Command(migrate.Command):
 
             for migration in block:
                 ready.remove(migration)
-                if self.safe(migration).when == When.BEFORE_DEPLOY:
+                if resolved[migration] == When.BEFORE_DEPLOY:
                     blocked.append(migration)
                 else:
                     delayed.append(migration)
 
         # Order the migrations in the order of the original plan.
-        delayed = [m for m in migrations if m in delayed]
-        blocked = [m for m in migrations if m in blocked]
+        delayed = [m for m in resolved if m in delayed]
+        blocked = [m for m in resolved if m in blocked]
 
         return ready, protected, delayed, blocked
 
