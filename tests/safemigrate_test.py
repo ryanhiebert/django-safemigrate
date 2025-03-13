@@ -587,7 +587,7 @@ class TestSafeMigrate:
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=Safe.after_deploy(),
+                    safe=Safe.after_deploy(delay=timedelta(days=1)),
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
@@ -598,6 +598,15 @@ class TestSafeMigrate:
                     "0003_safety",
                     safe=Safe.before_deploy(),
                     dependencies=[("spam", "0002_followup")],
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0004_blocked",
+                    safe=Safe.after_deploy(delay=timedelta(days=1)),
+                    dependencies=[("spam", "0003_safety")],
                 ),
                 False,
             ),
