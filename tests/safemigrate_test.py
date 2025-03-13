@@ -56,6 +56,8 @@ class TestSafeMigrate:
 
     def test_rerun(self, receiver):
         """Avoid running the pre_migrate_receiver twice."""
+        # Make sure we're looking for the right attribute
+        assert receiver.__self__.receiver_has_run is False
         receiver.__self__.receiver_has_run = True
         plan = [(Migration(), False)]
         receiver(plan=plan)
