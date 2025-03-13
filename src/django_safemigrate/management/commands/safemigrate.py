@@ -91,8 +91,15 @@ class Command(migrate.Command):
         if blocked and self.mode == Mode.STRICT:
             raise CommandError("Aborting due to blocked migrations.")
 
-        # Mark the migrations as detected
-        self.detect(list(declared))
+        # Mark the delayed migrations as detected
+        self.detect(
+            [
+                migration
+                for migration in delayed
+                if declared[migration].when == When.AFTER_DEPLOY
+                and declared[migration].delay is not None
+            ]
+        )
 
         # Swap out the items in the plan with the safe migrations.
         # None are backward, so we can always set backward to False.
@@ -127,7 +134,11 @@ class Command(migrate.Command):
     ) -> dict[Migration, timezone.datetime]:
         """Get the detected dates for each migration."""
         detected_map = SafeMigration.objects.get_detected_map(
-            [(m.app_label, m.name) for m in declared]
+            [
+                (migration.app_label, migration.name)
+                for migration, safe in declared.items()
+                if safe.when == When.AFTER_DEPLOY and safe.delay is not None
+            ]
         )
         return {
             migration: detected_map[(migration.app_label, migration.name)]
