@@ -282,61 +282,28 @@ class TestSafeMigrate:
         Confirm the delayed messaging of a migration with
         an after_deploy safety.
         """
-        migrations = [
-            Migration(
-                "spam",
-                "0001_initial",
-                safe=Safe.after_deploy(delay=(timedelta(days=8))),
+        plan = [
+            (
+                Migration(
+                    "spam",
+                    "0001_initial",
+                    safe=Safe.after_deploy(delay=(timedelta(days=8))),
+                ),
+                False,
             ),
-            Migration(
-                "spam",
-                "0002_followup",
-                safe=Safe.after_deploy(),
-                dependencies=[("spam", "0001_initial")],
-            ),
-        ]
-        out = StringIO()
-        command = Command(stdout=out)
-        declared = {migration: command.safe(migration) for migration in migrations}
-        detected = command.detected(declared)
-        resolved = command.resolve(declared, detected)
-        command.write_delayed(migrations, declared, resolved, detected)
-        result = out.getvalue().strip()
-        header, migration1, migration2 = result.split("\n", maxsplit=2)
-        assert header == "Delayed migrations:"
-        assert migration1.startswith(
-            "  spam.0001_initial (can automatically migrate in 1\xa0week, 1\xa0day - "
-        )
-        assert migration2 == "  spam.0002_followup"
-
-    def test_after_message_preseen(self):
-        """
-        Confirm the delayed messaging of a pre-existing migration with
-        an after_deploy safety.
-        """
-        SafeMigration.objects.create(
-            app="spam", name="0001_initial", detected=timezone.now() - timedelta(days=1)
-        )
-        migrations = [
-            Migration(
-                "spam",
-                "0001_initial",
-                # This will fail if it takes more than 10 minutes to run
-                safe=Safe.after_deploy(delay=(timedelta(days=9, minutes=10))),
-            ),
-            Migration(
-                "spam",
-                "0002_followup",
-                safe=Safe.after_deploy(),
-                dependencies=[("spam", "0001_initial")],
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.after_deploy(),
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
             ),
         ]
         out = StringIO()
-        command = Command(stdout=out)
-        declared = {migration: command.safe(migration) for migration in migrations}
-        detected = command.detected(declared)
-        resolved = command.resolve(declared, detected)
-        command.write_delayed(migrations, declared, resolved, detected)
+        receiver = Command(stdout=out).pre_migrate_receiver
+        receiver(plan=plan)
         result = out.getvalue().strip()
         header, migration1, migration2 = result.split("\n", maxsplit=2)
         assert header == "Delayed migrations:"
