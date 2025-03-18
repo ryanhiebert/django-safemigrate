@@ -111,7 +111,7 @@ then add this to the ``repos`` key of your ``.pre-commit-config.yaml``:
 
     repos:
         -   repo: https://github.com/ryanhiebert/django-safemigrate
-            rev: "4.3"
+            rev: "5.0"
             hooks:
             -   id: check
 
