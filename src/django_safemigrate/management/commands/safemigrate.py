@@ -14,6 +14,7 @@ from django.core.management.base import CommandError
 from django.core.management.commands import migrate
 from django.db.migrations import Migration
 from django.db.models.signals import pre_migrate
+from django.db.utils import OperationalError
 from django.utils import timezone
 from django.utils.timesince import timeuntil
 
@@ -133,13 +134,15 @@ class Command(migrate.Command):
         self, declared: dict[Migration, Safe]
     ) -> dict[Migration, timezone.datetime]:
         """Get the detected dates for each migration."""
-        detected_map = SafeMigration.objects.get_detected_map(
-            [
-                (migration.app_label, migration.name)
-                for migration, safe in declared.items()
-                if safe.when == When.AFTER_DEPLOY and safe.delay is not None
-            ]
-        )
+        to_detect = [
+            (migration.app_label, migration.name)
+            for migration, safe in declared.items()
+            if safe.when == When.AFTER_DEPLOY and safe.delay is not None
+        ]
+        try:
+            detected_map = SafeMigration.objects.get_detected_map(to_detect)
+        except OperationalError:  # pragma: no cover
+            return {}  # The table doesn't exist yet
         return {
             migration: detected_map[(migration.app_label, migration.name)]
             for migration in declared
@@ -244,10 +247,13 @@ class Command(migrate.Command):
         """Mark the given migrations as detected."""
         # The detection datetime is what's used to determine if an
         # after_deploy() with a delay can be migrated or not.
-        for migration in migrations:
-            SafeMigration.objects.get_or_create(
-                app=migration.app_label, name=migration.name
-            )
+        try:
+            for migration in migrations:
+                SafeMigration.objects.get_or_create(
+                    app=migration.app_label, name=migration.name
+                )
+        except OperationalError:  # pragma: no cover
+            pass  # The table doesn't exist yet
 
     def write_delayed(
         self,
