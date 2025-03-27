@@ -8,3 +8,4 @@ class SafeMigrateConfig(AppConfig):
 
     name = "django_safemigrate"
     verbose_name = _("Safe Migrate")
+    default_auto_field = "django.db.models.BigAutoField"

@@ -1,5 +1,17 @@
-5.0 (TBD)
-+++++++++
+5.1 (2025-03-27)
+++++++++++++++++
+
+* Declared the default auto field for the app to ``BigAutoField``,
+  to avoid isses where projects that have their ``DEFAULT_AUTO_FIELD``
+  set to ``"django.db.models.AutoField"``
+  from seeing this app as needing migrations generated.
+  ``django.db.models.AutoField`` is the default auto field
+  if the setting is not set,
+  but newly generated projects
+  automatically set it to ``django.db.models.BigAutoField``.
+
+5.0 (2025-03-18)
+++++++++++++++++
 
 Breaking Changes:
 
