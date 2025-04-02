@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-safemigrate"
-version = "5.1"
+version = "5.2"
 description = "Safely run migrations before deployment"
 authors = [{ name = "Ryan Hiebert", email = "ryan@ryanhiebert.com" }]
 license = { text = "MIT" }
