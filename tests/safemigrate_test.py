@@ -536,6 +536,20 @@ class TestSafeMigrate:
         with pytest.raises(ValueError):
             receiver(plan=plan)
 
+    def test_safemigrate_none_value(self, settings, receiver):
+        """``None`` is valid but deprecated, and means ``strict``."""
+        settings.SAFEMIGRATE = None
+        plan = []
+        with pytest.warns(DeprecationWarning):
+            receiver(plan=plan)
+
+    def test_safemigrate_non_string_value(self, settings, receiver):
+        """Non-string values for the SAFEMIGRATE setting will raise an error."""
+        settings.SAFEMIGRATE = 1
+        plan = []
+        with pytest.raises(ValueError):
+            receiver(plan=plan)
+
     def test_string_invalid(self, receiver):
         """Invalid settings of the safe property will raise an error."""
         plan = [(Migration("spam", "0001_initial", safe="before_deploy"), False)]

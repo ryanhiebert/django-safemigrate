@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Collection
 from functools import cached_property
 from enum import Enum
+import warnings
 
 from django.conf import settings
 from django.core.management.base import CommandError
@@ -109,8 +110,21 @@ class Command(migrate.Command):
     @cached_property
     def mode(self):
         """Determine the configured mode of operation for safemigrate."""
+        mode = getattr(settings, "SAFEMIGRATE", "strict")
+        if mode is None:
+            warnings.warn(
+                "Setting the SAFEMIGRATE setting to None is deprecated."
+                " Use 'strict' instead, or remove the setting to use the default.",
+                DeprecationWarning,
+            )
+            mode = "strict"
+        if not isinstance(mode, str):
+            raise ValueError(
+                "The SAFEMIGRATE setting must be a string."
+                " It must be one of 'strict', 'nonstrict', or 'disabled'."
+            )
         try:
-            return Mode(getattr(settings, "SAFEMIGRATE", "strict").lower())
+            return Mode(mode.lower())
         except ValueError:
             raise ValueError(
                 "The SAFEMIGRATE setting is invalid."

@@ -1,3 +1,12 @@
+5.2 (2025-04-02)
+++++++++++++++++
+
+* Fix undocumented backward incompatible change
+  that caused ``None`` to no longer be allowed
+  as the value of the ``SAFEMIGRATE`` setting.
+* Warn when ``None`` is used as the value of ``SAFEMIGRATE``,
+  instead of the preferred ``"strict"`` value.
+
 5.1 (2025-03-27)
 ++++++++++++++++
 
