@@ -2,6 +2,7 @@
 ++++++++++++++++
 
 * Add some helpful urls metadata to pyproject.toml
+
 5.2 (2025-04-02)
 ++++++++++++++++
 
