@@ -640,11 +640,20 @@ class TestSafeMigrate:
         assert len(plan) == 1
         assert SafeMigration.objects.count() == 1
 
-    def test_disallow_faking(self):
-        """Safemigrate does not support faking migrations."""
-        command = Command()
+    def test_disallow_unsupported_options(self):
+        """Early error if using an unsupported option."""
         with pytest.raises(CommandError):
-            command.handle(fake=True)
+            Command().handle(fake=True)
+        with pytest.raises(CommandError):
+            Command().handle(fake_initial=True)
+        with pytest.raises(CommandError):
+            Command().handle(plan=True)
+        with pytest.raises(CommandError):
+            Command().handle(check_unapplied=True)
+        with pytest.raises(CommandError):
+            Command().handle(prune=True)
+        with pytest.raises(CommandError):
+            Command().handle(run_syncdb=True)
         assert not SafeMigration.objects.exists()
 
     def test_migrations_are_detected(self, receiver):

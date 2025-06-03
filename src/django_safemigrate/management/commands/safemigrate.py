@@ -49,9 +49,16 @@ class Command(migrate.Command):
     receiver_has_run = False
 
     def handle(self, *args, **options):
-        fake = options.get("fake", False)
-        if fake:
+        if options.get("fake") or options.get("fake_initial"):
             raise CommandError("Safemigrate does not support faking migrations.")
+        if options.get("plan"):
+            raise CommandError("Safemigrate does not support the plan option.")
+        if options.get("check_unapplied"):
+            raise CommandError("Safemigrate does not support the check_unapplied option.")
+        if options.get("prune"):
+            raise CommandError("Safemigrate does not support the prune option.")
+        if options.get("run_syncdb"):
+            raise CommandError("Safemigrate does not support the run_syncdb option.")
 
         # Only connect the handler when this command is run to
         # avoid running for tests.

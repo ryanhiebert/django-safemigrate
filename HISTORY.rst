@@ -1,3 +1,11 @@
+6.0 (2025-06-03)
+++++++++++++++++
+
+* Drop support for Python 3.8.
+* Raise errors early for unsupported options,
+  including ``--fake-initial``, ``--plan``, ``--check``,
+  ``--prune``, and ``--run-syncdb``.
+
 5.3 (2025-04-02)
 ++++++++++++++++
 
